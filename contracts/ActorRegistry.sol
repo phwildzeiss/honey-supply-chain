@@ -18,8 +18,13 @@ contract ActorRegistry is AccessControl {
         bool registered;
     }
 
+    struct Certification {
+        string ipfsCid;
+        uint16 organicScore;
+    }
+
     mapping(address => Actor) public actors;
-    mapping(address => string) public certifications;
+    mapping(address => Certification) public certifications;
 
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -34,9 +39,10 @@ contract ActorRegistry is AccessControl {
 
     function setCertification(
         address actorAddress,
-        string calldata ipfsCid
+        string calldata ipfsCid,
+        uint16 organicScore
     ) external onlyRole(CERTIFICATION_BODY_ROLE) {
-        certifications[actorAddress] = ipfsCid;
+        certifications[actorAddress] = Certification(ipfsCid, organicScore);
     }
 
     function getActor(

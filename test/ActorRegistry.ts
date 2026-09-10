@@ -46,15 +46,17 @@ describe("ActorRegistry", function () {
         const CERTIFICATION_BODY_ROLE = await registry.CERTIFICATION_BODY_ROLE();
         await registry.connect(admin).grantRole(CERTIFICATION_BODY_ROLE, certBody.address);
 
-        await registry.connect(certBody).setCertification(beekeeper.address, "bafybeituwoexamplecid");
+        await registry.connect(certBody).setCertification(beekeeper.address, "bafybeituwoexamplecid", 5000);
 
-        expect(await registry.certifications(beekeeper.address)).to.equal("bafybeituwoexamplecid");
+        const certification = await registry.certifications(beekeeper.address);
+        expect(certification.ipfsCid).to.equal("bafybeituwoexamplecid");
+        expect(certification.organicScore).to.equal(5000);
     });
 
     it("rejects setCertification from an account without CERTIFICATION_BODY_ROLE", async function () {
         const { registry, outsider, beekeeper } = await deploy();
         await expect(
-            registry.connect(outsider).setCertification(beekeeper.address, "bafybeituwoexamplecid"),
+            registry.connect(outsider).setCertification(beekeeper.address, "bafybeituwoexamplecid", 5000),
         ).to.revert(ethers);
     });
 });
