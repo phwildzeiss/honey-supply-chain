@@ -78,10 +78,8 @@ contract HoneyToken is ERC1155, Ownable {
         _burn(bulkHolder, batchId, batchQuantities[batchId]);
 
         for (uint256 i = 0; i < jarSizesGrams.length; i++) {
-            uint256 jarTokenId = batchId |
-                (uint256(jarSizesGrams[i]) << JAR_SIZE_SHIFT) |
-                JAR_FLAG;
-            _mint(jarRecipient, jarTokenId, jarCounts[i], "");
+            uint256 id = jarTokenId(batchId, jarSizesGrams[i]);
+            _mint(jarRecipient, id, jarCounts[i], "");
         }
     }
 
@@ -107,5 +105,9 @@ contract HoneyToken is ERC1155, Ownable {
         batchId = tokenId & BATCH_ID_MASK;
         originalQuantity = batchQuantities[batchId];
         processed = processedBatches[batchId];
+    }
+
+    function jarTokenId(uint256 batchId, uint32 grams) public pure returns (uint256) {
+        return batchId | (uint256(grams) << JAR_SIZE_SHIFT) | JAR_FLAG;
     }
 }

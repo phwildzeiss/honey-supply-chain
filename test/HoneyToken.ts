@@ -127,4 +127,14 @@ describe("HoneyToken", function () {
     expect(jarData.originalQuantity).to.equal(1000);
     expect(jarData.processed).to.equal(true);
   });
+
+  it("computes jar token IDs consistently with getTokenData", async function () {
+    const { token } = await deploy();
+    const jarId = await token.jarTokenId(7, 500);
+    const data = await token.getTokenData(jarId);
+    expect(data.batchId).to.equal(7);
+    expect(data.isJar).to.equal(true);
+    expect(data.jarSizeGrams).to.equal(500);
+  });
+
 });
