@@ -16,7 +16,6 @@ contract QualityIndex {
     uint256 private constant SI_PRECIPITATION = 256;
 
     uint256 private constant PHQI_WEIGHT_EACH = 3333;
-    uint256 private constant WATER_PHQI_ZERO_THRESHOLD = 2000; // > 20.00 %
     uint256 private constant WATER_GATEKEEPER_THRESHOLD = 2300; // > 23.00 %
 
     uint256 private constant MCI_VARIETY = 1924;
@@ -31,8 +30,16 @@ contract QualityIndex {
     ActorRegistry public actorRegistry;
     address public supplyChain;
 
-    enum BatchState { Active, RetestRequired, NotSellable }
-    enum GatekeeperReason { None, WaterContentExceeded, TemperatureViolation }
+    enum BatchState {
+        Active,
+        RetestRequired,
+        NotSellable
+    }
+    enum GatekeeperReason {
+        None,
+        WaterContentExceeded,
+        TemperatureViolation
+    }
 
     struct SIInput {
         uint16 forage;
@@ -70,12 +77,18 @@ contract QualityIndex {
     mapping(uint256 => GatekeeperReason) public gatekeeperFlags;
 
     modifier onlySupplyChain() {
-        require(msg.sender == supplyChain, "QualityIndex: caller is not SupplyChain");
+        require(
+            msg.sender == supplyChain,
+            "QualityIndex: caller is not SupplyChain"
+        );
         _;
     }
 
     modifier onlyRole(bytes32 role) {
-        require(actorRegistry.hasRole(role, msg.sender), "QualityIndex: missing role");
+        require(
+            actorRegistry.hasRole(role, msg.sender),
+            "QualityIndex: missing role"
+        );
         _;
     }
 
@@ -83,15 +96,23 @@ contract QualityIndex {
         actorRegistry = ActorRegistry(actorRegistryAddress);
     }
 
-    function setSupplyChain(address supplyChainAddress) external onlyRole(actorRegistry.DEFAULT_ADMIN_ROLE()) {
+    function setSupplyChain(
+        address supplyChainAddress
+    ) external onlyRole(actorRegistry.DEFAULT_ADMIN_ROLE()) {
         supplyChain = supplyChainAddress;
     }
 
-    function submitSIData(uint256 batchId, SIInput calldata input) external onlyRole(actorRegistry.BEEKEEPER_ROLE()) {
+    function submitSIData(
+        uint256 batchId,
+        SIInput calldata input
+    ) external onlyRole(actorRegistry.BEEKEEPER_ROLE()) {
         qualityData[batchId].si = calculateSI(input);
     }
 
-    function submitPHQIData(uint256 batchId, PHQIInput calldata input) external onlyRole(actorRegistry.LAB_ROLE()) {
+    function submitPHQIData(
+        uint256 batchId,
+        PHQIInput calldata input
+    ) external onlyRole(actorRegistry.LAB_ROLE()) {
         (uint256 phqi, GatekeeperReason reason) = calculatePHQI(input);
         qualityData[batchId].phqi = phqi;
 
@@ -123,41 +144,60 @@ contract QualityIndex {
     }
 
     function calculateSI(SIInput calldata input) public pure returns (uint256) {
-        return (
-            uint256(input.forage) * SI_FORAGE +
-            uint256(input.lightIntensity) * SI_LIGHT_INTENSITY +
-            uint256(input.waterSource) * SI_WATER_SOURCE +
-            uint256(input.summerTemperature) * SI_SUMMER_TEMP +
-            uint256(input.winterTemperature) * SI_WINTER_TEMP +
-            uint256(input.windSpeed) * SI_WIND +
-            uint256(input.humidity) * SI_HUMIDITY +
-            uint256(input.precipitation) * SI_PRECIPITATION
-        ) / SCALE;
+        return
+            (uint256(input.forage) *
+                SI_FORAGE +
+                uint256(input.lightIntensity) *
+                SI_LIGHT_INTENSITY +
+                uint256(input.waterSource) *
+                SI_WATER_SOURCE +
+                uint256(input.summerTemperature) *
+                SI_SUMMER_TEMP +
+                uint256(input.winterTemperature) *
+                SI_WINTER_TEMP +
+                uint256(input.windSpeed) *
+                SI_WIND +
+                uint256(input.humidity) *
+                SI_HUMIDITY +
+                uint256(input.precipitation) *
+                SI_PRECIPITATION) / SCALE;
     }
 
-    function calculatePHQI(PHQIInput calldata input) public pure returns (uint256 phqi, GatekeeperReason reason) {
+    function calculatePHQI(
+        PHQIInput calldata input
+    ) public pure returns (uint256 phqi, GatekeeperReason reason) {
         if (input.waterContentPercent > WATER_GATEKEEPER_THRESHOLD) {
             return (0, GatekeeperReason.WaterContentExceeded);
         }
-        if (input.waterContentPercent > WATER_PHQI_ZERO_THRESHOLD) {
+        if (
+            input.normalizedWaterContent == 0 ||
+            input.hmf == 0 ||
+            input.invertaseActivity == 0
+        ) {
             return (0, GatekeeperReason.None);
         }
-        phqi = (
-            uint256(input.normalizedWaterContent) * PHQI_WEIGHT_EACH +
-            uint256(input.hmf) * PHQI_WEIGHT_EACH +
-            uint256(input.invertaseActivity) * PHQI_WEIGHT_EACH
-        ) / SCALE;
+        phqi =
+            (uint256(input.normalizedWaterContent) *
+                PHQI_WEIGHT_EACH +
+                uint256(input.hmf) *
+                PHQI_WEIGHT_EACH +
+                uint256(input.invertaseActivity) *
+                PHQI_WEIGHT_EACH) /
+            SCALE;
         reason = GatekeeperReason.None;
     }
 
     function calculateMCI(uint256 batchId) public view returns (uint256) {
         MCIData memory data = mciData[batchId];
-        return (
-            uint256(data.variety) * MCI_VARIETY +
-            uint256(data.region) * MCI_REGION +
-            uint256(data.organic) * MCI_ORGANIC +
-            uint256(data.award) * MCI_AWARD
-        ) / SCALE;
+        return
+            (uint256(data.variety) *
+                MCI_VARIETY +
+                uint256(data.region) *
+                MCI_REGION +
+                uint256(data.organic) *
+                MCI_ORGANIC +
+                uint256(data.award) *
+                MCI_AWARD) / SCALE;
     }
 
     function calculateQI(uint256 batchId) public view returns (uint256) {
@@ -167,12 +207,16 @@ contract QualityIndex {
         return (phqi * QI_PHQI + mci * QI_MCI + si * QI_SI) / SCALE;
     }
 
-    function checkGatekeeper(uint256 batchId) external view returns (bool sellable, GatekeeperReason reason) {
+    function checkGatekeeper(
+        uint256 batchId
+    ) external view returns (bool sellable, GatekeeperReason reason) {
         reason = gatekeeperFlags[batchId];
         sellable = batchStates[batchId] != BatchState.NotSellable;
     }
 
-    function triggerTemperatureViolation(uint256 batchId) external onlySupplyChain {
+    function triggerTemperatureViolation(
+        uint256 batchId
+    ) external onlySupplyChain {
         if (batchStates[batchId] == BatchState.NotSellable) {
             return;
         }
@@ -180,10 +224,19 @@ contract QualityIndex {
         batchStates[batchId] = BatchState.RetestRequired;
     }
 
-    function getQualityData(uint256 batchId)
+    function getQualityData(
+        uint256 batchId
+    )
         external
         view
-        returns (uint256 si, uint256 phqi, uint256 mci, uint256 qi, BatchState state, GatekeeperReason reason)
+        returns (
+            uint256 si,
+            uint256 phqi,
+            uint256 mci,
+            uint256 qi,
+            BatchState state,
+            GatekeeperReason reason
+        )
     {
         si = qualityData[batchId].si;
         phqi = qualityData[batchId].phqi;

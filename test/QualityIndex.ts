@@ -59,10 +59,10 @@ describe("QualityIndex", function () {
     expect(data.state).to.equal(0); // Active
   });
 
-  it("zeroes PHQI without triggering the hard gatekeeper between 20% and 23% water content", async function () {
+  it("zeroes PHQI when the water content criterion hits the worst Saaty tier, without triggering the hard gatekeeper", async function () {
     const { qualityIndex, lab } = await deploy();
     await qualityIndex.connect(lab).submitPHQIData(1, {
-      normalizedWaterContent: 10000, hmf: 10000, invertaseActivity: 10000, waterContentPercent: 2100,
+      normalizedWaterContent: 0, hmf: 10000, invertaseActivity: 10000, waterContentPercent: 2100,
     });
 
     const data = await qualityIndex.getQualityData(1);
@@ -70,6 +70,27 @@ describe("QualityIndex", function () {
     expect(data.reason).to.equal(0); // None
     expect(data.state).to.equal(0); // Active
   });
+
+  it("zeroes PHQI when the HMF criterion hits the worst Saaty tier", async function () {
+    const { qualityIndex, lab } = await deploy();
+    await qualityIndex.connect(lab).submitPHQIData(1, {
+      normalizedWaterContent: 10000, hmf: 0, invertaseActivity: 10000, waterContentPercent: 1500,
+    });
+
+    const data = await qualityIndex.getQualityData(1);
+    expect(data.phqi).to.equal(0);
+  });
+
+  it("zeroes PHQI when the invertase activity criterion hits the worst Saaty tier", async function () {
+    const { qualityIndex, lab } = await deploy();
+    await qualityIndex.connect(lab).submitPHQIData(1, {
+      normalizedWaterContent: 10000, hmf: 10000, invertaseActivity: 0, waterContentPercent: 1500,
+    });
+
+    const data = await qualityIndex.getQualityData(1);
+    expect(data.phqi).to.equal(0);
+  });
+
 
   it("triggers the hard gatekeeper and marks the batch not sellable above 23% water content", async function () {
     const { qualityIndex, lab } = await deploy();
