@@ -52,7 +52,7 @@ describe("QualityIndex", function () {
     const { qualityIndex, lab } = await deploy();
     await qualityIndex.connect(lab).submitPHQIData(1, {
       normalizedWaterContent: 10000, hmf: 10000, invertaseActivity: 10000, waterContentPercent: 1500,
-    });
+    }, 0, "");
 
     const data = await qualityIndex.getQualityData(1);
     expect(data.phqi).to.equal(9999);
@@ -63,7 +63,7 @@ describe("QualityIndex", function () {
     const { qualityIndex, lab } = await deploy();
     await qualityIndex.connect(lab).submitPHQIData(1, {
       normalizedWaterContent: 0, hmf: 10000, invertaseActivity: 10000, waterContentPercent: 2100,
-    });
+    }, 0, "");
 
     const data = await qualityIndex.getQualityData(1);
     expect(data.phqi).to.equal(0);
@@ -75,7 +75,7 @@ describe("QualityIndex", function () {
     const { qualityIndex, lab } = await deploy();
     await qualityIndex.connect(lab).submitPHQIData(1, {
       normalizedWaterContent: 10000, hmf: 0, invertaseActivity: 10000, waterContentPercent: 1500,
-    });
+    }, 0, "");
 
     const data = await qualityIndex.getQualityData(1);
     expect(data.phqi).to.equal(0);
@@ -85,7 +85,7 @@ describe("QualityIndex", function () {
     const { qualityIndex, lab } = await deploy();
     await qualityIndex.connect(lab).submitPHQIData(1, {
       normalizedWaterContent: 10000, hmf: 10000, invertaseActivity: 0, waterContentPercent: 1500,
-    });
+    }, 0, "");
 
     const data = await qualityIndex.getQualityData(1);
     expect(data.phqi).to.equal(0);
@@ -96,7 +96,7 @@ describe("QualityIndex", function () {
     const { qualityIndex, lab } = await deploy();
     await qualityIndex.connect(lab).submitPHQIData(1, {
       normalizedWaterContent: 10000, hmf: 10000, invertaseActivity: 10000, waterContentPercent: 2400,
-    });
+    }, 0, "");
 
     const [sellable, reason] = await qualityIndex.checkGatekeeper(1);
     expect(sellable).to.equal(false);
@@ -105,14 +105,15 @@ describe("QualityIndex", function () {
 
   it("rejects submitPHQIData from a non-lab caller", async function () {
     const { qualityIndex, outsider } = await deploy();
-    await expect(qualityIndex.connect(outsider).submitPHQIData(1, emptyPHQI)).to.revert(ethers);
+    await expect(qualityIndex.connect(outsider).submitPHQIData(1, emptyPHQI, 0, "")).to.revert(ethers);
   });
 
   it("combines MCI data from the beekeeper and the award body, including the organic score from ActorRegistry", async function () {
-    const { registry, qualityIndex, beekeeper, certBody, awardBody } = await deploy();
+    const { registry, qualityIndex, beekeeper, certBody, awardBody, lab } = await deploy();
 
     await registry.connect(certBody).setCertification(beekeeper.address, "bafybeicert", 10000);
-    await qualityIndex.connect(beekeeper).submitMCIOriginData(1, 10000, 0);
+    await qualityIndex.connect(lab).submitPHQIData(1, emptyPHQI, 10000, "bafybeilab");
+    await qualityIndex.connect(beekeeper).submitMCIOriginData(1, 0);
     await qualityIndex.connect(awardBody).submitAward(1, 0);
 
     const data = await qualityIndex.getQualityData(1);
@@ -122,7 +123,7 @@ describe("QualityIndex", function () {
 
   it("rejects submitMCIOriginData from a non-beekeeper", async function () {
     const { qualityIndex, outsider } = await deploy();
-    await expect(qualityIndex.connect(outsider).submitMCIOriginData(1, 0, 0)).to.revert(ethers);
+    await expect(qualityIndex.connect(outsider).submitMCIOriginData(1, 0)).to.revert(ethers);
   });
 
   it("rejects submitAward from a caller without AWARD_BODY_ROLE", async function () {
@@ -136,8 +137,8 @@ describe("QualityIndex", function () {
     await qualityIndex.connect(beekeeper).submitSIData(1, { ...emptySI, forage: 10000 });
     await qualityIndex.connect(lab).submitPHQIData(1, {
       normalizedWaterContent: 10000, hmf: 10000, invertaseActivity: 10000, waterContentPercent: 1500,
-    });
-    await qualityIndex.connect(beekeeper).submitMCIOriginData(1, 10000, 0);
+    }, 10000, "");
+    await qualityIndex.connect(beekeeper).submitMCIOriginData(1, 0);
     await qualityIndex.connect(awardBody).submitAward(1, 0);
 
     // SI = 3741, PHQI = 9999, MCI = 1924
@@ -152,7 +153,7 @@ describe("QualityIndex", function () {
   it("requires a retest on a temperature violation without downgrading a not-sellable batch", async function () {
     const { qualityIndex, supplyChain, lab } = await deploy();
 
-    await qualityIndex.connect(lab).submitPHQIData(1, { ...emptyPHQI, waterContentPercent: 2400 });
+    await qualityIndex.connect(lab).submitPHQIData(1, { ...emptyPHQI, waterContentPercent: 2400 }, 0, "");
     await qualityIndex.connect(supplyChain).triggerTemperatureViolation(1);
 
     const [, reason] = await qualityIndex.checkGatekeeper(1);
@@ -168,7 +169,7 @@ describe("QualityIndex", function () {
 
     await qualityIndex.connect(lab).submitPHQIData(1, {
       normalizedWaterContent: 10000, hmf: 10000, invertaseActivity: 10000, waterContentPercent: 1500,
-    });
+    }, 0, "");
 
     data = await qualityIndex.getQualityData(1);
     expect(data.state).to.equal(0); // Active

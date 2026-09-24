@@ -118,8 +118,8 @@ describe("ConsumerGateway", function () {
     });
     await qualityIndex.connect(lab).submitPHQIData(1, {
       normalizedWaterContent: 10000, hmf: 10000, invertaseActivity: 10000, waterContentPercent: 1500,
-    });
-    await qualityIndex.connect(beekeeper).submitMCIOriginData(1, 10000, 0);
+    }, 10000, "");
+    await qualityIndex.connect(beekeeper).submitMCIOriginData(1, 0);
     await qualityIndex.connect(awardBody).submitAward(1, 0);
 
     const fromGateway = await gateway.getPrice(1, 500);

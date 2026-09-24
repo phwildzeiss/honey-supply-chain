@@ -75,6 +75,7 @@ contract QualityIndex {
     mapping(uint256 => MCIData) public mciData;
     mapping(uint256 => BatchState) public batchStates;
     mapping(uint256 => GatekeeperReason) public gatekeeperFlags;
+    mapping(uint256 => string) public phqiReportCid;
 
     modifier onlySupplyChain() {
         require(
@@ -111,10 +112,14 @@ contract QualityIndex {
 
     function submitPHQIData(
         uint256 batchId,
-        PHQIInput calldata input
+        PHQIInput calldata input,
+        uint16 variety,
+        string calldata ipfsCid
     ) external onlyRole(actorRegistry.LAB_ROLE()) {
         (uint256 phqi, GatekeeperReason reason) = calculatePHQI(input);
         qualityData[batchId].phqi = phqi;
+        mciData[batchId].variety = variety;
+        phqiReportCid[batchId] = ipfsCid;  
 
         if (reason == GatekeeperReason.WaterContentExceeded) {
             gatekeeperFlags[batchId] = GatekeeperReason.WaterContentExceeded;
@@ -127,11 +132,9 @@ contract QualityIndex {
 
     function submitMCIOriginData(
         uint256 batchId,
-        uint16 variety,
         uint16 region
     ) external onlyRole(actorRegistry.BEEKEEPER_ROLE()) {
         (, uint16 organicScore) = actorRegistry.certifications(msg.sender);
-        mciData[batchId].variety = variety;
         mciData[batchId].region = region;
         mciData[batchId].organic = organicScore;
     }

@@ -32,8 +32,8 @@ describe("PricingModel", function () {
     });
     await qualityIndex.connect(lab).submitPHQIData(batchId, {
       normalizedWaterContent: 10000, hmf: 10000, invertaseActivity: 10000, waterContentPercent: 1500,
-    });
-    await qualityIndex.connect(beekeeper).submitMCIOriginData(batchId, 10000, 0);
+    }, 10000, "");
+    await qualityIndex.connect(beekeeper).submitMCIOriginData(batchId, 0);
     await qualityIndex.connect(awardBody).submitAward(batchId, 0);
     // SI=3741, PHQI=9999, MCI=1924 -> QI=6578 (verifiziert in QualityIndex.ts)
   }
@@ -94,7 +94,7 @@ describe("PricingModel", function () {
     await pricingModel.connect(admin).setFloorPrice(500, 480);
     await qualityIndex.connect(lab).submitPHQIData(1, {
       normalizedWaterContent: 0, hmf: 0, invertaseActivity: 0, waterContentPercent: 2400,
-    });
+    },0 , "");
 
     await expect(pricingModel.calculatePrice(1, 500)).to.revert(ethers);
   });
