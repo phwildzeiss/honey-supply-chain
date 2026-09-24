@@ -32,3 +32,6 @@
 
 # docs
 /docs
+
+# Hardhat Ignition deployment journal (local network artifacts, not portable)
+/ignition/deployments
