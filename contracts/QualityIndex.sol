@@ -76,6 +76,7 @@ contract QualityIndex {
     mapping(uint256 => BatchState) public batchStates;
     mapping(uint256 => GatekeeperReason) public gatekeeperFlags;
     mapping(uint256 => string) public phqiReportCid;
+    mapping(uint256 => string) public awardCertificateCid;
 
     modifier onlySupplyChain() {
         require(
@@ -119,7 +120,7 @@ contract QualityIndex {
         (uint256 phqi, GatekeeperReason reason) = calculatePHQI(input);
         qualityData[batchId].phqi = phqi;
         mciData[batchId].variety = variety;
-        phqiReportCid[batchId] = ipfsCid;  
+        phqiReportCid[batchId] = ipfsCid;
 
         if (reason == GatekeeperReason.WaterContentExceeded) {
             gatekeeperFlags[batchId] = GatekeeperReason.WaterContentExceeded;
@@ -141,9 +142,11 @@ contract QualityIndex {
 
     function submitAward(
         uint256 batchId,
-        uint16 level
+        uint16 level,
+        string calldata ipfsCid
     ) external onlyRole(actorRegistry.AWARD_BODY_ROLE()) {
         mciData[batchId].award = level;
+        awardCertificateCid[batchId] = ipfsCid;
     }
 
     function calculateSI(SIInput calldata input) public pure returns (uint256) {

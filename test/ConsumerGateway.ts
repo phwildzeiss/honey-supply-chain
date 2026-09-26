@@ -120,7 +120,7 @@ describe("ConsumerGateway", function () {
       normalizedWaterContent: 10000, hmf: 10000, invertaseActivity: 10000, waterContentPercent: 1500,
     }, 10000, "");
     await qualityIndex.connect(beekeeper).submitMCIOriginData(1, 0);
-    await qualityIndex.connect(awardBody).submitAward(1, 0);
+    await qualityIndex.connect(awardBody).submitAward(1, 0, "");
 
     const fromGateway = await gateway.getPrice(1, 500);
     const fromPricingModel = await pricingModel.getPrice(1, 500);

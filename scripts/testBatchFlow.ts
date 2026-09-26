@@ -37,7 +37,7 @@ async function main() {
     })
   ).wait();
 
-  console.log("4) PHQI-Daten einreichen (Laborwerte)...");
+  console.log("4) PHQI-Daten und Laborbefund einreichen (inkl. Sorte)...");
   await (
     await qualityIndex.connect(lab).submitPHQIData(batchId, {
       normalizedWaterContent: 8000,
@@ -47,11 +47,11 @@ async function main() {
     }, 5000, "bafybeiexamplecid")
   ).wait();
 
-  console.log("5) MCI-Herkunftsdaten einreichen (Sorte/Region)...");
+  console.log("5) MCI-Herkunftsdaten einreichen (Region)...");
   await (await qualityIndex.connect(beekeeper).submitMCIOriginData(batchId, 9000)).wait();
 
-  console.log("6) Prämierung einreichen...");
-  await (await qualityIndex.connect(awardBody).submitAward(batchId, 5000)).wait();
+  console.log("6) Prämierungsurkunde einreichen...");
+  await (await qualityIndex.connect(awardBody).submitAward(batchId, 5000, "bafybeiawardcid")).wait();
 
   console.log("\n--- Ergebnis ---");
   const data = await qualityIndex.getQualityData(batchId);

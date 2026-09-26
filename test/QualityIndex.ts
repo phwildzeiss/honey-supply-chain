@@ -114,7 +114,7 @@ describe("QualityIndex", function () {
     await registry.connect(certBody).setCertification(beekeeper.address, "bafybeicert", 10000);
     await qualityIndex.connect(lab).submitPHQIData(1, emptyPHQI, 10000, "bafybeilab");
     await qualityIndex.connect(beekeeper).submitMCIOriginData(1, 0);
-    await qualityIndex.connect(awardBody).submitAward(1, 0);
+    await qualityIndex.connect(awardBody).submitAward(1, 0, "");
 
     const data = await qualityIndex.getQualityData(1);
     // variety (1924) + organic (1618); region and award are 0
@@ -128,7 +128,7 @@ describe("QualityIndex", function () {
 
   it("rejects submitAward from a caller without AWARD_BODY_ROLE", async function () {
     const { qualityIndex, outsider } = await deploy();
-    await expect(qualityIndex.connect(outsider).submitAward(1, 0)).to.revert(ethers);
+    await expect(qualityIndex.connect(outsider).submitAward(1, 0, "")).to.revert(ethers);
   });
 
   it("combines SI, PHQI, and MCI into QI using the published weights", async function () {
@@ -139,7 +139,7 @@ describe("QualityIndex", function () {
       normalizedWaterContent: 10000, hmf: 10000, invertaseActivity: 10000, waterContentPercent: 1500,
     }, 10000, "");
     await qualityIndex.connect(beekeeper).submitMCIOriginData(1, 0);
-    await qualityIndex.connect(awardBody).submitAward(1, 0);
+    await qualityIndex.connect(awardBody).submitAward(1, 0, "");
 
     // SI = 3741, PHQI = 9999, MCI = 1924
     // QI = (9999*5396 + 1924*2970 + 3741*1634) / 10000 = 6578 (Ganzzahldivision)
