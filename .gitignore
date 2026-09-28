@@ -35,3 +35,6 @@
 
 # Hardhat Ignition deployment journal (local network artifacts, not portable)
 /ignition/deployments
+
+# Results of the full batch runner (CSV/JSON per run)
+/results
