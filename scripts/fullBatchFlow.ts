@@ -1,13 +1,19 @@
-import { network } from "hardhat";
 import { mkdirSync, writeFileSync } from "node:fs";
-import HoneySupplyChainModule from "../ignition/modules/HoneySupplyChain.js";
+import { deployAndBootstrap } from "./lib/chainSetup.js";
 
+const NETWORK = process.env.NETWORK ?? "localhost"; // e.g. "sepolia"; the --network flag has no effect on network.create
 const SIMULATOR_URL = process.env.SIMULATOR_URL ?? "http://127.0.0.1:8081/api";
 const GENERATED_RUNS = Number(process.env.GENERATED_RUNS ?? 5);
 const SEED = Number(process.env.SEED ?? 42);
-const SCENARIO_FILTER = process.env.SCENARIO_FILTER ?? ""; // only run scenarios whose name contains this text
+// Comma-separated list of name substrings; a scenario runs if its name contains at least one of them (OR). Empty
+// means every scenario. Short terms like "S-I" also match "S-II"/"S-III"/"S-IV" (substring match); the full name
+// (e.g. "S-I/BS-1") does not have that problem. Set LIST_SCENARIOS=1 to print the matching names and exit,
+// without connecting to a network, to look up the exact names first.
+const SCENARIO_FILTERS = (process.env.SCENARIO_FILTER ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+const LIST_SCENARIOS = process.env.LIST_SCENARIOS === "1";
 const ETH_EUR = Number(process.env.ETH_EUR ?? 2500); // assumption, no market data
 const GWEI_ASSUMPTIONS = [5, 20, 50]; // assumptions for the cost calculation
+const TX_TIMEOUT_MS = Number(process.env.TX_TIMEOUT_MS ?? 180_000); // stop waiting on a stuck transaction
 const JAR_GRAMS = 500;
 const FLOOR_PRICE_CENTS = 480;
 const ALPHA = 8000;
@@ -84,7 +90,7 @@ function buildScenarios(): Scenario[] {
         ...profile, transportForce: "NORMAL", defrostForce: "NORMAL" });
     }
   }
-  scenarios.push({ name: "COLD_CHAIN/BS-1", stands: [referenceStand(1)], ...PROFILES["S-II"],
+  scenarios.push({ name: "TEMPERATURE_VIOLATION/BS-1", stands: [referenceStand(1)], ...PROFILES["S-II"],
     transportForce: "VIOLATION", defrostForce: "NORMAL", retest: true });
   scenarios.push({ name: "MIXED/BS-1+BS-3", stands: [referenceStand(1, 15000), referenceStand(3, 10000)],
     ...PROFILES["S-I"], transportForce: "NORMAL", defrostForce: "NORMAL" });
@@ -102,41 +108,20 @@ function buildScenarios(): Scenario[] {
     scenarios.push({ name: `GENERATED/${i}`, chain, stands: [{ standId: stationId, grams, distance: 50 + Math.floor(rand() * 750) }],
       lab: { force: "NORMAL" }, region });
   }
-  return scenarios.filter((s) => s.name.includes(SCENARIO_FILTER));
+  return scenarios.filter((s) => SCENARIO_FILTERS.length === 0 || SCENARIO_FILTERS.some((f) => s.name.includes(f)));
 }
 
-const { ethers, ignition } = await network.create({ network: "localhost" });
-const [admin, lab, awardBody, certBody, beekeeper, bottler, retailer, logistics] = await ethers.getSigners();
-const { actorRegistry, honeyToken, qualityIndex, supplyChain, consumerGateway } =
-  await ignition.deploy(HoneySupplyChainModule);
-
-async function bootstrap() {
-  // The beekeeper also holds BOTTLER_ROLE and RETAILER_ROLE for the shortened chains (bottling himself, direct marketing).
-  const grants: [string, string][] = [
-    ["LAB_ROLE", lab.address], ["AWARD_BODY_ROLE", awardBody.address], ["CERTIFICATION_BODY_ROLE", certBody.address],
-    ["BEEKEEPER_ROLE", beekeeper.address], ["BOTTLER_ROLE", beekeeper.address], ["RETAILER_ROLE", beekeeper.address],
-    ["BOTTLER_ROLE", bottler.address], ["RETAILER_ROLE", retailer.address], ["LOGISTICS_ROLE", logistics.address],
-  ];
-  for (const [roleName, address] of grants) {
-    const role = await (actorRegistry as any)[roleName]();
-    if (!(await actorRegistry.hasRole(role, address))) {
-      await (await actorRegistry.connect(admin).grantRole(role, address)).wait();
-    }
-  }
-  const names: [string, string][] = [
-    [beekeeper.address, "Imkerei Mustermann"], [bottler.address, "Abfuellbetrieb Honigmanufaktur"],
-    [retailer.address, "Bio-Laden Eisenstadt"], [logistics.address, "Spedition Schnell"],
-  ];
-  for (const [address, name] of names) {
-    if (!(await actorRegistry.getActor(address)).registered) {
-      await (await actorRegistry.connect(admin).registerActor(address, name)).wait();
-    }
-  }
-  // Every holder that passes the batch on needs to approve SupplyChain for the token transfer.
-  for (const holder of [beekeeper, bottler, logistics]) {
-    await (await honeyToken.connect(holder).setApprovalForAll(await supplyChain.getAddress(), true)).wait();
-  }
+const scenarios = buildScenarios();
+if (LIST_SCENARIOS) {
+  console.log(`${scenarios.length} scenario(s) match SCENARIO_FILTER="${SCENARIO_FILTERS.join(",")}":\n`);
+  scenarios.forEach((s, i) => console.log(`  ${i + 1}. ${s.name} (${s.chain ?? "FULL"})`));
+  process.exit(0);
 }
+
+// Deploying and setting up roles is shared with deployAndBootstrap.ts, so both stay in sync.
+const { ethers, signers, contracts } = await deployAndBootstrap(NETWORK);
+const { beekeeper, bottler, retailer, logistics } = signers;
+const { qualityIndex, supplyChain, consumerGateway } = contracts;
 
 async function post(path: string, body?: unknown): Promise<any> {
   const response = await fetch(`${SIMULATOR_URL}${path}`, {
@@ -189,7 +174,11 @@ async function runBatch(runNo: number, scenario: Scenario, steps: Row[]): Promis
   async function onChain(step: string, actor: string, send: () => Promise<any>) {
     const t0 = performance.now();
     const tx = await send();
-    await tx.wait();
+    try {
+      await tx.wait(1, TX_TIMEOUT_MS); // rejects with a TIMEOUT error if not mined within TX_TIMEOUT_MS
+    } catch (error) {
+      throw new Error(`${step}: transaction ${tx.hash} was not confirmed within ${TX_TIMEOUT_MS} ms`, { cause: error });
+    }
     const durationMs = performance.now() - t0;
     return record(step, actor, tx.hash, durationMs, { renderMs: 0, uploadMs: 0, chainMs: Math.round(durationMs) });
   }
@@ -263,7 +252,7 @@ async function runBatch(runNo: number, scenario: Scenario, steps: Row[]): Promis
   if (chain === "DIRECT") {
     await onChain("recordRetailReceipt", "beekeeper", () => supplyChain.connect(beekeeper).recordRetailReceipt(batchId));
   } else {
-    // In the COLD_CHAIN scenario the second leg runs without a violation, otherwise the retest would be undone at once.
+    // In the TEMPERATURE_VIOLATION scenario the second leg runs without a violation, otherwise the retest would be undone at once.
     const lastLegForce = chain === "FULL" && scenario.retest ? "NORMAL" : scenario.transportForce;
     await transportLeg(processor, processorName, retailer.address, "retailer", lastLegForce);
     await onChain("recordRetailReceipt", "retailer", () => supplyChain.connect(retailer).recordRetailReceipt(batchId));
@@ -295,10 +284,18 @@ function toCsv(rows: Row[]): string {
   return [headers.join(","), ...rows.map((r) => headers.map((h) => cell(r[h])).join(","))].join("\n");
 }
 
-await bootstrap();
 const steps: Row[] = [];
 const runs: Row[] = [];
-const scenarios = buildScenarios();
+
+const dir = `results/${new Date().toISOString().replaceAll(":", "-")}`;
+mkdirSync(dir, { recursive: true });
+// Written after every scenario (not only at the end), so a run on Sepolia keeps its results if it is interrupted.
+function writeResults() {
+  writeFileSync(`${dir}/steps.csv`, toCsv(steps));
+  writeFileSync(`${dir}/runs.csv`, toCsv(runs));
+  writeFileSync(`${dir}/raw.json`, JSON.stringify({ steps, runs }, null, 2));
+}
+
 for (const [index, scenario] of scenarios.entries()) {
   console.log(`[${index + 1}/${scenarios.length}] ${scenario.name} (${scenario.chain ?? "FULL"})`);
   try {
@@ -307,11 +304,7 @@ for (const [index, scenario] of scenarios.entries()) {
     console.error(`  FAILED: ${(error as Error).message}`);
     runs.push({ run: index + 1, scenario: scenario.name, error: (error as Error).message });
   }
+  writeResults();
 }
 
-const dir = `results/${new Date().toISOString().replaceAll(":", "-")}`;
-mkdirSync(dir, { recursive: true });
-writeFileSync(`${dir}/steps.csv`, toCsv(steps));
-writeFileSync(`${dir}/runs.csv`, toCsv(runs));
-writeFileSync(`${dir}/raw.json`, JSON.stringify({ steps, runs }, null, 2));
 console.log(`\nResults in ${dir}`);
