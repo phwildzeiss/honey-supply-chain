@@ -77,6 +77,7 @@ contract QualityIndex {
     mapping(uint256 => GatekeeperReason) public gatekeeperFlags;
     mapping(uint256 => string) public phqiReportCid;
     mapping(uint256 => string) public awardCertificateCid;
+    mapping(uint256 => string) public originCid;
 
     modifier onlySupplyChain() {
         require(
@@ -138,6 +139,13 @@ contract QualityIndex {
         (, uint16 organicScore) = actorRegistry.certifications(msg.sender);
         mciData[batchId].region = region;
         mciData[batchId].organic = organicScore;
+    }
+
+    function submitOrigin(
+        uint256 batchId,
+        string calldata ipfsCid
+    ) external onlyRole(actorRegistry.BEEKEEPER_ROLE()) {
+        originCid[batchId] = ipfsCid;
     }
 
     function submitAward(
