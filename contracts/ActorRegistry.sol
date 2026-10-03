@@ -25,6 +25,7 @@ contract ActorRegistry is AccessControl {
 
     mapping(address => Actor) public actors;
     mapping(address => Certification) public certifications;
+    address[] private actorAddresses;
 
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -34,6 +35,9 @@ contract ActorRegistry is AccessControl {
         address actorAddress,
         string calldata name
     ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (!actors[actorAddress].registered) {
+            actorAddresses.push(actorAddress);
+        }
         actors[actorAddress] = Actor(name, true);
     }
 
@@ -49,5 +53,17 @@ contract ActorRegistry is AccessControl {
         address actorAddress
     ) external view returns (Actor memory) {
         return actors[actorAddress];
+    }
+
+    function getAllActors()
+        external
+        view
+        returns (address[] memory addresses, Actor[] memory actorList)
+    {
+        addresses = actorAddresses;
+        actorList = new Actor[](actorAddresses.length);
+        for (uint256 i = 0; i < actorAddresses.length; i++) {
+            actorList[i] = actors[actorAddresses[i]];
+        }
     }
 }
