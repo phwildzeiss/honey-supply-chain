@@ -17,7 +17,7 @@ export async function deployAndBootstrap(networkName: string) {
   // before the next is sent, so a first run here can take several minutes. Every line logged is one more
   // transaction that has just been confirmed, so this is also how to tell the run is still making progress.
   console.log("Deploying contracts (or reusing an existing deployment)...");
-  const { actorRegistry, honeyToken, qualityIndex, pricingModel, supplyChain, consumerGateway } =
+  const { actorRegistry, honeyToken, qualityIndex, pricingModel, supplyChain, productGateway } =
     await ignition.deploy(HoneySupplyChainModule);
   console.log("Contracts ready.");
 
@@ -67,6 +67,6 @@ export async function deployAndBootstrap(networkName: string) {
   return {
     ethers,
     signers: { admin, lab, awardBody, certBody, beekeeper, bottler, retailer, logistics },
-    contracts: { actorRegistry, honeyToken, qualityIndex, pricingModel, supplyChain, consumerGateway },
+    contracts: { actorRegistry, honeyToken, qualityIndex, pricingModel, supplyChain, productGateway },
   };
 }

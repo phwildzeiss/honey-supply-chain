@@ -10,7 +10,7 @@ export default buildModule("HoneySupplyChain", (m) => {
   const qualityIndex = m.contract("QualityIndex", [actorRegistry]);
   const pricingModel = m.contract("PricingModel", [actorRegistry, qualityIndex, alpha]);
   const supplyChain = m.contract("SupplyChain", [actorRegistry, honeyToken, qualityIndex]);
-  const consumerGateway = m.contract("ConsumerGateway", [
+  const productGateway = m.contract("ProductGateway", [
     actorRegistry,
     supplyChain,
     honeyToken,
@@ -22,5 +22,5 @@ export default buildModule("HoneySupplyChain", (m) => {
   m.call(qualityIndex, "setSupplyChain", [supplyChain]);
   m.call(pricingModel, "setFloorPrice", [500, referenceFloorPriceCents]);
 
-  return { actorRegistry, honeyToken, qualityIndex, pricingModel, supplyChain, consumerGateway };
+  return { actorRegistry, honeyToken, qualityIndex, pricingModel, supplyChain, productGateway };
 });

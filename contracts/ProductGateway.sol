@@ -7,7 +7,7 @@ import "./HoneyToken.sol";
 import "./QualityIndex.sol";
 import "./PricingModel.sol";
 
-contract ConsumerGateway {
+contract ProductGateway {
     ActorRegistry public actorRegistry;
     SupplyChain public supplyChain;
     HoneyToken public honeyToken;
@@ -17,7 +17,7 @@ contract ConsumerGateway {
     modifier onlyRole(bytes32 role) {
         require(
             actorRegistry.hasRole(role, msg.sender),
-            "ConsumerGateway: missing role"
+            "ProductGateway: missing role"
         );
         _;
     }

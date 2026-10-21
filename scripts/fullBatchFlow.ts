@@ -78,8 +78,9 @@ const referenceStand = (id: number, grams = 25000): Stand => ({ standId: id, gra
 const PROFILES: Record<string, Omit<Scenario, "name" | "stands">> = {
   "S-I": { lab: { force: "PREMIUM" }, region: "REGIONAL_GPS_VERIFIED", award: "GOLD", certification: "ASSOCIATION_ORGANIC" },
   "S-II": { lab: { force: "STANDARD", variety: "MIXED_BLOSSOM" }, region: "REGIONAL_GPS_VERIFIED", award: "NONE", certification: "NONE" },
-  "S-III": { lab: { force: "PHQI_EXCLUDED", variety: "MIXED_BLOSSOM" }, region: "EU_NON_EU_MIX", award: "NONE", certification: "NONE" },
-  "S-IV": { lab: { force: "GATEKEEPER", variety: "PREMIUM_VARIETAL" }, region: "REGIONAL_GPS_VERIFIED", award: "GOLD", certification: "ASSOCIATION_ORGANIC" },
+  // GATEKEEPER (water >23%, NotSellable) = Worst-Case; PHQI_EXCLUDED (incl. water 20-23%, still sellable) = Gatekeeper.
+  "S-III": { lab: { force: "GATEKEEPER", variety: "MIXED_BLOSSOM" }, region: "EU_NON_EU_MIX", award: "NONE", certification: "NONE" },
+  "S-IV": { lab: { force: "PHQI_EXCLUDED", variety: "PREMIUM_VARIETAL" }, region: "REGIONAL_GPS_VERIFIED", award: "GOLD", certification: "ASSOCIATION_ORGANIC" },
 };
 
 function buildScenarios(): Scenario[] {
@@ -121,7 +122,7 @@ if (LIST_SCENARIOS) {
 // Deploying and setting up roles is shared with deployAndBootstrap.ts, so both stay in sync.
 const { ethers, signers, contracts } = await deployAndBootstrap(NETWORK);
 const { beekeeper, bottler, retailer, logistics } = signers;
-const { qualityIndex, supplyChain, consumerGateway } = contracts;
+const { qualityIndex, supplyChain, productGateway } = contracts;
 
 async function post(path: string, body?: unknown): Promise<any> {
   const response = await fetch(`${SIMULATOR_URL}${path}`, {
@@ -136,10 +137,10 @@ async function post(path: string, body?: unknown): Promise<any> {
 const sensorPath = (kind: string, force?: string) => `/sensors/${kind}${force ? `?force=${force}` : ""}`;
 
 async function snapshot(batchId: bigint): Promise<Row> {
-  const q = await consumerGateway.getQualityData(batchId);
+  const q = await productGateway.getQualityData(batchId);
   let priceCents: string | number = "not sellable";
   try {
-    priceCents = Number(await consumerGateway.getPrice(batchId, JAR_GRAMS));
+    priceCents = Number(await productGateway.getPrice(batchId, JAR_GRAMS));
   } catch { /* NotSellable: getPrice reverts */ }
   const [si, phqi, mci] = [Number(q.si), Number(q.phqi), Number(q.mci)];
   const expectedQi = Math.floor((5396 * phqi + 2970 * mci + 1634 * si) / 10000);

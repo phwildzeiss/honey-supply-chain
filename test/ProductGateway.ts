@@ -3,7 +3,7 @@ import { network } from "hardhat";
 
 const { ethers } = await network.create();
 
-describe("ConsumerGateway", function () {
+describe("ProductGateway", function () {
   async function deploy() {
     const [admin, beekeeper, lab, awardBody, outsider] = await ethers.getSigners();
 
@@ -28,7 +28,7 @@ describe("ConsumerGateway", function () {
     await qualityIndex.connect(admin).setSupplyChain(await supplyChain.getAddress());
 
     const gateway = await ethers.deployContract(
-      "ConsumerGateway",
+      "ProductGateway",
       [
         await registry.getAddress(),
         await supplyChain.getAddress(),

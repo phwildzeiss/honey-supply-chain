@@ -32,9 +32,8 @@ export default defineConfig({
       type: "http",
       chainType: "l1",
       url: configVariable("SEPOLIA_RPC_URL"),
-      // A dedicated test-only mnemonic, not a wallet holding real funds. Derives the same 8 accounts as the
-      // local node (#0 admin, #1-3 lab/award body/certification body, #4-7 beekeeper/bottler/retailer/logistics),
-      // see scripts/createMnemonic.ts and docs/FullBatchFlowBeschreibung.md.
+      // Dedicated test-only mnemonic, deriving the same 8 roles as the local node (#0 admin, #1-3
+      // lab/award/certification body, #4-7 beekeeper/bottler/retailer/logistics).
       accounts: { mnemonic: configVariable("SEPOLIA_MNEMONIC"), count: 8 },
     },
   },
