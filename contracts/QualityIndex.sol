@@ -15,17 +15,16 @@ contract QualityIndex {
     uint256 private constant SI_HUMIDITY = 364;
     uint256 private constant SI_PRECIPITATION = 256;
 
-    uint256 private constant PHQI_WEIGHT_EACH = 3333;
-    uint256 private constant WATER_GATEKEEPER_THRESHOLD = 2300; // > 23.00 %
+    uint256 private constant WATER_GATEKEEPER_THRESHOLD = 2300;
 
     uint256 private constant MCI_VARIETY = 1924;
     uint256 private constant MCI_REGION = 4668;
     uint256 private constant MCI_ORGANIC = 1618;
-    uint256 private constant MCI_AWARD = 1791;
+    uint256 private constant MCI_AWARD = 1790;
 
-    uint256 private constant QI_PHQI = 5396;
-    uint256 private constant QI_MCI = 2970;
-    uint256 private constant QI_SI = 1634;
+    uint256 private constant QI_PHQI = 5390;
+    uint256 private constant QI_MCI = 2972;
+    uint256 private constant QI_SI = 1638;
 
     ActorRegistry public actorRegistry;
     address public supplyChain;
@@ -56,7 +55,7 @@ contract QualityIndex {
         uint16 normalizedWaterContent;
         uint16 hmf;
         uint16 invertaseActivity;
-        uint16 waterContentPercent; // raw, e.g. 2350 = 23.50% — gatekeeper check only
+        uint16 waterContentPercent;
     }
 
     struct MCIData {
@@ -112,6 +111,8 @@ contract QualityIndex {
         qualityData[batchId].si = calculateSI(input);
     }
 
+    event PHQIDataSubmitted(uint256 indexed batchId, string ipfsCid);
+
     function submitPHQIData(
         uint256 batchId,
         PHQIInput calldata input,
@@ -122,6 +123,7 @@ contract QualityIndex {
         qualityData[batchId].phqi = phqi;
         mciData[batchId].variety = variety;
         phqiReportCid[batchId] = ipfsCid;
+        emit PHQIDataSubmitted(batchId, ipfsCid);
 
         if (reason == GatekeeperReason.WaterContentExceeded) {
             gatekeeperFlags[batchId] = GatekeeperReason.WaterContentExceeded;
@@ -190,14 +192,12 @@ contract QualityIndex {
         ) {
             return (0, GatekeeperReason.None);
         }
+
         phqi =
-            (uint256(input.normalizedWaterContent) *
-                PHQI_WEIGHT_EACH +
-                uint256(input.hmf) *
-                PHQI_WEIGHT_EACH +
-                uint256(input.invertaseActivity) *
-                PHQI_WEIGHT_EACH) /
-            SCALE;
+            (uint256(input.normalizedWaterContent) +
+                uint256(input.hmf) +
+                uint256(input.invertaseActivity)) /
+            3;
         reason = GatekeeperReason.None;
     }
 

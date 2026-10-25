@@ -4,7 +4,7 @@ import { network } from "hardhat";
 const { ethers } = await network.create();
 
 describe("PricingModel", function () {
-  const INITIAL_ALPHA = 8000; // 0.80
+  const INITIAL_ALPHA = 8000;
 
   async function deploy() {
     const [admin, beekeeper, lab, awardBody, outsider] = await ethers.getSigners();
@@ -35,7 +35,6 @@ describe("PricingModel", function () {
     }, 10000, "");
     await qualityIndex.connect(beekeeper).submitMCIOriginData(batchId, 0);
     await qualityIndex.connect(awardBody).submitAward(batchId, 0, "");
-    // SI=3741, PHQI=9999, MCI=1924 -> QI=6578 (verifiziert in QualityIndex.ts)
   }
 
   it("sets the constructor parameters", async function () {
@@ -77,7 +76,6 @@ describe("PricingModel", function () {
     await pricingModel.connect(admin).setFloorPrice(500, 480);
     await submitGoodQualityBatch(qualityIndex, beekeeper, lab, awardBody, 1);
 
-    // price = 480 * (100_000_000 + 8000*6578) / 100_000_000 = 732 (Ganzzahldivision)
     expect(await pricingModel.calculatePrice(1, 500)).to.equal(732);
   });
 

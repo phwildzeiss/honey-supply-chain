@@ -48,15 +48,15 @@ describe("QualityIndex", function () {
     await expect(qualityIndex.connect(outsider).submitSIData(1, emptySI)).to.revert(ethers);
   });
 
-  it("computes PHQI normally when the water content is below 20%", async function () {
+  it("averages PHQI criteria equally, reaching exactly 10000 at three maximum values", async function () {
     const { qualityIndex, lab } = await deploy();
     await qualityIndex.connect(lab).submitPHQIData(1, {
       normalizedWaterContent: 10000, hmf: 10000, invertaseActivity: 10000, waterContentPercent: 1500,
     }, 0, "");
 
     const data = await qualityIndex.getQualityData(1);
-    expect(data.phqi).to.equal(9999);
-    expect(data.state).to.equal(0); // Active
+    expect(data.phqi).to.equal(10000);
+    expect(data.state).to.equal(0);
   });
 
   it("zeroes PHQI when the water content criterion hits the worst Saaty tier, without triggering the hard gatekeeper", async function () {
@@ -67,8 +67,8 @@ describe("QualityIndex", function () {
 
     const data = await qualityIndex.getQualityData(1);
     expect(data.phqi).to.equal(0);
-    expect(data.reason).to.equal(0); // None
-    expect(data.state).to.equal(0); // Active
+    expect(data.reason).to.equal(0);
+    expect(data.state).to.equal(0);
   });
 
   it("zeroes PHQI when the HMF criterion hits the worst Saaty tier", async function () {
@@ -100,7 +100,7 @@ describe("QualityIndex", function () {
 
     const [sellable, reason] = await qualityIndex.checkGatekeeper(1);
     expect(sellable).to.equal(false);
-    expect(reason).to.equal(1); // WaterContentExceeded
+    expect(reason).to.equal(1);
   });
 
   it("rejects submitPHQIData from a non-lab caller", async function () {
@@ -117,8 +117,19 @@ describe("QualityIndex", function () {
     await qualityIndex.connect(awardBody).submitAward(1, 0, "");
 
     const data = await qualityIndex.getQualityData(1);
-    // variety (1924) + organic (1618); region and award are 0
     expect(data.mci).to.equal(1924 + 1618);
+  });
+
+  it("caps MCI at exactly 10000 when variety, region, organic, and award are all maxed", async function () {
+    const { registry, qualityIndex, beekeeper, certBody, awardBody, lab } = await deploy();
+
+    await registry.connect(certBody).setCertification(beekeeper.address, "bafybeicert", 10000);
+    await qualityIndex.connect(lab).submitPHQIData(1, emptyPHQI, 10000, "bafybeilab");
+    await qualityIndex.connect(beekeeper).submitMCIOriginData(1, 10000);
+    await qualityIndex.connect(awardBody).submitAward(1, 10000, "");
+
+    const data = await qualityIndex.getQualityData(1);
+    expect(data.mci).to.equal(10000);
   });
 
   it("rejects submitMCIOriginData from a non-beekeeper", async function () {
@@ -141,13 +152,30 @@ describe("QualityIndex", function () {
     await qualityIndex.connect(beekeeper).submitMCIOriginData(1, 0);
     await qualityIndex.connect(awardBody).submitAward(1, 0, "");
 
-    // SI = 3741, PHQI = 9999, MCI = 1924
-    // QI = (9999*5396 + 1924*2970 + 3741*1634) / 10000 = 6578 (Ganzzahldivision)
     const data = await qualityIndex.getQualityData(1);
     expect(data.si).to.equal(3741);
-    expect(data.phqi).to.equal(9999);
+    expect(data.phqi).to.equal(10000);
     expect(data.mci).to.equal(1924);
-    expect(data.qi).to.equal(6578);
+    expect(data.qi).to.equal(6574);
+  });
+
+  it("sums the QI weights (PHQI/MCI/SI) to exactly 10000", async function () {
+    const { registry, qualityIndex, beekeeper, certBody, awardBody, lab } = await deploy();
+
+    await registry.connect(certBody).setCertification(beekeeper.address, "bafybeicert", 10000);
+    await qualityIndex.connect(lab).submitPHQIData(1, { normalizedWaterContent: 10000, hmf: 10000, invertaseActivity: 10000, waterContentPercent: 1500 }, 10000, "");
+    await qualityIndex.connect(beekeeper).submitMCIOriginData(1, 10000);
+    await qualityIndex.connect(awardBody).submitAward(1, 10000, "");
+    await qualityIndex.connect(beekeeper).submitSIData(1, {
+      forage: 10000, lightIntensity: 10000, waterSource: 10000, summerTemperature: 10000,
+      winterTemperature: 10000, windSpeed: 10000, humidity: 10000, precipitation: 10000,
+    });
+
+    const data = await qualityIndex.getQualityData(1);
+    expect(data.phqi).to.equal(10000);
+    expect(data.mci).to.equal(10000);
+    expect(data.si).to.equal(9999);
+    expect(data.qi).to.equal(9999);
   });
 
   it("requires a retest on a temperature violation without downgrading a not-sellable batch", async function () {
@@ -157,7 +185,7 @@ describe("QualityIndex", function () {
     await qualityIndex.connect(supplyChain).triggerTemperatureViolation(1);
 
     const [, reason] = await qualityIndex.checkGatekeeper(1);
-    expect(reason).to.equal(1); // bleibt WaterContentExceeded, nicht durch TemperatureViolation überschrieben
+    expect(reason).to.equal(1);
   });
 
   it("clears a retest requirement once PHQI is resubmitted", async function () {
@@ -165,14 +193,14 @@ describe("QualityIndex", function () {
 
     await qualityIndex.connect(supplyChain).triggerTemperatureViolation(1);
     let data = await qualityIndex.getQualityData(1);
-    expect(data.state).to.equal(1); // RetestRequired
+    expect(data.state).to.equal(1);
 
     await qualityIndex.connect(lab).submitPHQIData(1, {
       normalizedWaterContent: 10000, hmf: 10000, invertaseActivity: 10000, waterContentPercent: 1500,
     }, 0, "");
 
     data = await qualityIndex.getQualityData(1);
-    expect(data.state).to.equal(0); // Active
+    expect(data.state).to.equal(0);
   });
 
   it("rejects triggerTemperatureViolation from a caller that is not SupplyChain", async function () {

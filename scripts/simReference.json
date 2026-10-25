@@ -1,0 +1,172 @@
+{
+  "_source": {
+    "generatedAt": "2026-10-24",
+    "pythonProject": "D:\\15-Qnap\\Florianis\\01-Philipp\\Studium\\CloudComputing\\Masterarbeit\\simulation - Kopie",
+    "modules": [
+      "qi/qi.py: QI.calculate",
+      "phqi/phqi_iteration_2.py: PHQIIteration2.calculate",
+      "mci/mci.py: MCI.calculate",
+      "pricing/price_model_iteration_2.py: PriceModel.calculate_price"
+    ],
+    "note": "SI-Werte aus Kapitel 5.2 der Arbeit (bereits validiert, nicht neu berechnet). Lab-Rohwerte sind repraesentative Werte je Force-Ergebnis (Bucket-Grenzen aus LabReportGenerator.java), kein Zufall."
+  },
+  "weights": {
+    "qi": [
+      0.538961038961039,
+      0.2972582972582973,
+      0.16378066378066378
+    ],
+    "mci": {
+      "variety": 0.1924316581114958,
+      "origin": 0.4667542079503403,
+      "certification": 0.1617524173331742,
+      "award": 0.17906171660498987
+    }
+  },
+  "scenarios": {
+    "F-1": {
+      "si": 0.783,
+      "phqi": 1.0,
+      "mci": 1.0,
+      "qi": 0.9645,
+      "notSellable": false,
+      "priceEur": 8.5035,
+      "priceCents": 850
+    },
+    "F-1/BS-5": {
+      "si": 0.5512,
+      "phqi": 1.0,
+      "mci": 1.0,
+      "qi": 0.9265,
+      "notSellable": false,
+      "priceEur": 8.3577,
+      "priceCents": 836
+    },
+    "F-1/BS-3": {
+      "si": 0.3907,
+      "phqi": 1.0,
+      "mci": 1.0,
+      "qi": 0.9002,
+      "notSellable": false,
+      "priceEur": 8.2568,
+      "priceCents": 826
+    },
+    "F-2": {
+      "si": 0.783,
+      "phqi": 0.5,
+      "mci": 0.4668,
+      "qi": 0.5365,
+      "notSellable": false,
+      "priceEur": 6.86,
+      "priceCents": 686
+    },
+    "F-2/BS-5": {
+      "si": 0.5512,
+      "phqi": 0.5,
+      "mci": 0.4668,
+      "qi": 0.4985,
+      "notSellable": false,
+      "priceEur": 6.7143,
+      "priceCents": 671
+    },
+    "F-2/BS-3": {
+      "si": 0.3907,
+      "phqi": 0.5,
+      "mci": 0.4668,
+      "qi": 0.4722,
+      "notSellable": false,
+      "priceEur": 6.6133,
+      "priceCents": 661
+    },
+    "F-3": {
+      "si": 0.783,
+      "phqi": 0.0,
+      "mci": 0.0,
+      "qi": 0.1282,
+      "notSellable": true,
+      "priceEur": null,
+      "priceCents": null
+    },
+    "F-3/BS-5": {
+      "si": 0.5512,
+      "phqi": 0.0,
+      "mci": 0.0,
+      "qi": 0.0903,
+      "notSellable": true,
+      "priceEur": null,
+      "priceCents": null
+    },
+    "F-3/BS-3": {
+      "si": 0.3907,
+      "phqi": 0.0,
+      "mci": 0.0,
+      "qi": 0.064,
+      "notSellable": true,
+      "priceEur": null,
+      "priceCents": null
+    },
+    "F-4": {
+      "si": 0.783,
+      "phqi": 0.0,
+      "mci": 1.0,
+      "qi": 0.4255,
+      "notSellable": false,
+      "priceEur": 6.4339,
+      "priceCents": 643
+    },
+    "F-4/BS-5": {
+      "si": 0.5512,
+      "phqi": 0.0,
+      "mci": 1.0,
+      "qi": 0.3875,
+      "notSellable": false,
+      "priceEur": 6.2881,
+      "priceCents": 629
+    },
+    "F-4/BS-3": {
+      "si": 0.3907,
+      "phqi": 0.0,
+      "mci": 1.0,
+      "qi": 0.3612,
+      "notSellable": false,
+      "priceEur": 6.1872,
+      "priceCents": 619
+    },
+    "F-6": {
+      "si": 0.6261,
+      "phqi": 0.5,
+      "mci": 0.4668,
+      "qi": 0.5108,
+      "notSellable": false,
+      "priceEur": 6.7613,
+      "priceCents": 676
+    },
+    "F-7": {
+      "si": 0.783,
+      "phqi": 0.5,
+      "mci": 0.4668,
+      "qi": 0.5365,
+      "notSellable": false,
+      "priceEur": 6.86,
+      "priceCents": 686
+    },
+    "F-5_preRetest": {
+      "si": 0.783,
+      "phqi": 0.5,
+      "mci": 0.4668,
+      "qi": 0.5365,
+      "notSellable": false,
+      "priceEur": 6.86,
+      "priceCents": 686
+    },
+    "F-5": {
+      "si": 0.783,
+      "phqi": 0.4167,
+      "mci": 0.4668,
+      "qi": 0.4916,
+      "notSellable": false,
+      "priceEur": 6.6876,
+      "priceCents": 669
+    }
+  }
+}
