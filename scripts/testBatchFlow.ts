@@ -6,8 +6,15 @@ const { ethers, ignition } = await network.connect({ network: "localhost" });
 async function main() {
   const [admin, beekeeper, lab, awardBody] = await ethers.getSigners();
 
-  const { actorRegistry, qualityIndex, pricingModel, supplyChain } =
-    await ignition.deploy(HoneySupplyChainModule);
+  const deployed = await ignition.deploy(HoneySupplyChainModule);
+  // ignition.deploy()'s return type has no contract-specific methods - re-attach by address to
+  // recover the typing ethers.getContractAt() gets from artifacts/.../artifacts.d.ts.
+  const [actorRegistry, qualityIndex, pricingModel, supplyChain] = await Promise.all([
+    ethers.getContractAt("ActorRegistry", await deployed.actorRegistry.getAddress()),
+    ethers.getContractAt("QualityIndex", await deployed.qualityIndex.getAddress()),
+    ethers.getContractAt("PricingModel", await deployed.pricingModel.getAddress()),
+    ethers.getContractAt("SupplyChain", await deployed.supplyChain.getAddress()),
+  ]);
 
   console.log("ActorRegistry:", await actorRegistry.getAddress());
   console.log("SupplyChain:  ", await supplyChain.getAddress());

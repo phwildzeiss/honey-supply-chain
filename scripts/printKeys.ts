@@ -1,9 +1,3 @@
-// Derives private keys from the configured Sepolia mnemonic and prints them, for entry into
-// application-local.properties (#1-3: lab, award body, certification body) or for importing into MetaMask
-// for the GUI (#4-7: beekeeper, bottler, retailer, logistics). Prints to the terminal only, writes nothing to
-// disk and is not itself a network call other than resolving the mnemonic from the keystore.
-//   npx hardhat run scripts/printKeys.ts                  # accounts 1,2,3 (default)
-//   ACCOUNTS=4,5,6,7 npx hardhat run scripts/printKeys.ts  # accounts 4-7
 import { config } from "hardhat";
 import { HDNodeWallet } from "ethers";
 
@@ -12,7 +6,8 @@ const ACCOUNTS = (process.env.ACCOUNTS ?? "1,2,3").split(",").map((s) => Number(
 
 const ACCOUNT_ROLES: Record<number, string> = {
   0: "admin", 1: "lab", 2: "award body", 3: "certification body",
-  4: "beekeeper", 5: "bottler", 6: "retailer", 7: "logistics",
+  4: "beekeeper (runner)", 5: "bottler", 6: "retailer", 7: "logistics",
+  8: "beekeeper (live case study)",
 };
 
 const networkConfig = config.networks[NETWORK];
