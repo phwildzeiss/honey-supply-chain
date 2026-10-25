@@ -13,8 +13,8 @@ contract SupplyChain {
 
     uint256 public nextBatchId = 1;
 
-    uint256 public maxSafeTemperatureCelsius = 40;
-    uint256 public maxSafeDurationMinutes = 60; // Platzhalter-Annahme
+    int256 public maxSafeTemperatureCelsius = 40;
+    uint256 public maxSafeDurationMinutes = 60;
 
     struct Batch {
         uint256 quantity;
@@ -40,26 +40,40 @@ contract SupplyChain {
     mapping(uint256 => uint256) public retailReceiptTimestamp;
 
     modifier onlyRole(bytes32 role) {
-        require(actorRegistry.hasRole(role, msg.sender), "SupplyChain: missing role");
+        require(
+            actorRegistry.hasRole(role, msg.sender),
+            "SupplyChain: missing role"
+        );
         _;
     }
 
     modifier onlyCurrentHolder(uint256 batchId) {
-        require(currentHolder[batchId] == msg.sender, "SupplyChain: caller does not hold custody");
+        require(
+            currentHolder[batchId] == msg.sender,
+            "SupplyChain: caller does not hold custody"
+        );
         _;
     }
 
-    constructor(address actorRegistryAddress, address honeyTokenAddress, address qualityIndexAddress) {
+    constructor(
+        address actorRegistryAddress,
+        address honeyTokenAddress,
+        address qualityIndexAddress
+    ) {
         actorRegistry = ActorRegistry(actorRegistryAddress);
         honeyToken = HoneyToken(honeyTokenAddress);
         qualityIndex = QualityIndex(qualityIndexAddress);
     }
 
-    function setMaxSafeTemperature(uint256 celsius) external onlyRole(actorRegistry.DEFAULT_ADMIN_ROLE()) {
+    function setMaxSafeTemperature(
+        int256 celsius
+    ) external onlyRole(actorRegistry.DEFAULT_ADMIN_ROLE()) {
         maxSafeTemperatureCelsius = celsius;
     }
 
-    function setMaxSafeDuration(uint256 minutesValue) external onlyRole(actorRegistry.DEFAULT_ADMIN_ROLE()) {
+    function setMaxSafeDuration(
+        uint256 minutesValue
+    ) external onlyRole(actorRegistry.DEFAULT_ADMIN_ROLE()) {
         maxSafeDurationMinutes = minutesValue;
     }
 
@@ -67,8 +81,15 @@ contract SupplyChain {
         uint16 harvestYear,
         uint256[] calldata standIds,
         uint256[] calldata locationQuantities
-    ) external onlyRole(actorRegistry.BEEKEEPER_ROLE()) returns (uint256 batchId) {
-        require(standIds.length == locationQuantities.length, "SupplyChain: length mismatch");
+    )
+        external
+        onlyRole(actorRegistry.BEEKEEPER_ROLE())
+        returns (uint256 batchId)
+    {
+        require(
+            standIds.length == locationQuantities.length,
+            "SupplyChain: length mismatch"
+        );
 
         uint256 totalQuantity;
         for (uint256 i = 0; i < locationQuantities.length; i++) {
@@ -80,13 +101,18 @@ contract SupplyChain {
         currentHolder[batchId] = msg.sender;
 
         for (uint256 i = 0; i < standIds.length; i++) {
-            batchLocations[batchId].push(LocationContribution(standIds[i], locationQuantities[i]));
+            batchLocations[batchId].push(
+                LocationContribution(standIds[i], locationQuantities[i])
+            );
         }
 
         honeyToken.mintBulkBatch(batchId, totalQuantity, msg.sender);
     }
 
-    function transferCustody(uint256 batchId, address to) external onlyCurrentHolder(batchId) {
+    function transferCustody(
+        uint256 batchId,
+        address to
+    ) external onlyCurrentHolder(batchId) {
         address from = msg.sender;
         currentHolder[batchId] = to;
         custodyHistory[batchId].push(CustodyRecord(from, to, block.timestamp));
@@ -116,7 +142,13 @@ contract SupplyChain {
                 finalIds[i] = ids[i];
                 finalAmounts[i] = amounts[i];
             }
-            honeyToken.safeBatchTransferFrom(from, to, finalIds, finalAmounts, "");
+            honeyToken.safeBatchTransferFrom(
+                from,
+                to,
+                finalIds,
+                finalAmounts,
+                ""
+            );
         }
     }
 
@@ -124,38 +156,60 @@ contract SupplyChain {
         uint256 batchId,
         uint32[] calldata jarSizesGrams,
         uint256[] calldata jarCounts
-    ) external onlyRole(actorRegistry.BOTTLER_ROLE()) onlyCurrentHolder(batchId) {
-        honeyToken.mintJars(batchId, msg.sender, jarSizesGrams, jarCounts, msg.sender);
+    )
+        external
+        onlyRole(actorRegistry.BOTTLER_ROLE())
+        onlyCurrentHolder(batchId)
+    {
+        honeyToken.mintJars(
+            batchId,
+            msg.sender,
+            jarSizesGrams,
+            jarCounts,
+            msg.sender
+        );
         honeyToken.markBatchProcessed(batchId);
     }
 
     function recordTransportData(
         uint256 batchId,
-        uint256 temperatureCelsius,
+        int256 temperatureCelsius,
         uint256 durationMinutes
     ) external onlyCurrentHolder(batchId) {
-        if (temperatureCelsius > maxSafeTemperatureCelsius && durationMinutes >= maxSafeDurationMinutes) {
+        if (
+            temperatureCelsius > maxSafeTemperatureCelsius &&
+            durationMinutes >= maxSafeDurationMinutes
+        ) {
             qualityIndex.triggerTemperatureViolation(batchId);
         }
     }
 
     function recordWarehouseData(
         uint256 batchId,
-        uint256 temperatureCelsius,
+        int256 temperatureCelsius,
         uint256 durationMinutes
     ) external onlyCurrentHolder(batchId) {
-        if (temperatureCelsius > maxSafeTemperatureCelsius && durationMinutes >= maxSafeDurationMinutes) {
+        if (
+            temperatureCelsius > maxSafeTemperatureCelsius &&
+            durationMinutes >= maxSafeDurationMinutes
+        ) {
             qualityIndex.triggerTemperatureViolation(batchId);
         }
     }
 
     function recordRetailReceipt(
         uint256 batchId
-    ) external onlyRole(actorRegistry.RETAILER_ROLE()) onlyCurrentHolder(batchId) {
+    )
+        external
+        onlyRole(actorRegistry.RETAILER_ROLE())
+        onlyCurrentHolder(batchId)
+    {
         retailReceiptTimestamp[batchId] = block.timestamp;
     }
 
-    function getBatch(uint256 batchId) external view returns (Batch memory batch, address holder) {
+    function getBatch(
+        uint256 batchId
+    ) external view returns (Batch memory batch, address holder) {
         batch = batches[batchId];
         holder = currentHolder[batchId];
     }

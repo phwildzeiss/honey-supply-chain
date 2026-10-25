@@ -121,18 +121,28 @@ describe("SupplyChain", function () {
     await supplyChain.connect(beekeeper).recordTransportData(1, 45, 90);
 
     const data = await qualityIndex.getQualityData(1);
-    expect(data.state).to.equal(1); // RetestRequired
+    expect(data.state).to.equal(1);
   });
 
   it("does not trigger a violation unless both temperature and duration exceed the thresholds", async function () {
     const { supplyChain, qualityIndex, beekeeper } = await deploy();
     await supplyChain.connect(beekeeper).registerHarvestBatch(2026, [1], [1000]);
 
-    await supplyChain.connect(beekeeper).recordWarehouseData(1, 45, 30); // heiß, aber zu kurz
-    await supplyChain.connect(beekeeper).recordWarehouseData(1, 35, 90); // lang, aber nicht zu heiß
+    await supplyChain.connect(beekeeper).recordWarehouseData(1, 45, 30);
+    await supplyChain.connect(beekeeper).recordWarehouseData(1, 35, 90);
 
     const data = await qualityIndex.getQualityData(1);
-    expect(data.state).to.equal(0); // Active
+    expect(data.state).to.equal(0);
+  });
+
+  it("accepts a below-zero temperature without reverting or triggering a violation", async function () {
+    const { supplyChain, qualityIndex, beekeeper } = await deploy();
+    await supplyChain.connect(beekeeper).registerHarvestBatch(2026, [1], [1000]);
+
+    await supplyChain.connect(beekeeper).recordTransportData(1, -2, 90);
+
+    const data = await qualityIndex.getQualityData(1);
+    expect(data.state).to.equal(0);
   });
 
   it("allows the admin to adjust the safety thresholds", async function () {
