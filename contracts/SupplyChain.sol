@@ -55,6 +55,19 @@ contract SupplyChain {
         _;
     }
 
+    modifier onlySellable(uint256 batchId) {
+        QualityIndex.BatchState state = qualityIndex.batchStates(batchId);
+        require(
+            state != QualityIndex.BatchState.RetestRequired,
+            "SupplyChain: batch requires a lab retest before it can proceed"
+        );
+        require(
+            state != QualityIndex.BatchState.NotSellable,
+            "SupplyChain: batch is not sellable"
+        );
+        _;
+    }
+
     constructor(
         address actorRegistryAddress,
         address honeyTokenAddress,
@@ -112,7 +125,7 @@ contract SupplyChain {
     function transferCustody(
         uint256 batchId,
         address to
-    ) external onlyCurrentHolder(batchId) {
+    ) external onlyCurrentHolder(batchId) onlySellable(batchId) {
         address from = msg.sender;
         currentHolder[batchId] = to;
         custodyHistory[batchId].push(CustodyRecord(from, to, block.timestamp));
@@ -160,6 +173,7 @@ contract SupplyChain {
         external
         onlyRole(actorRegistry.BOTTLER_ROLE())
         onlyCurrentHolder(batchId)
+        onlySellable(batchId)
     {
         honeyToken.mintJars(
             batchId,
@@ -203,7 +217,12 @@ contract SupplyChain {
         external
         onlyRole(actorRegistry.RETAILER_ROLE())
         onlyCurrentHolder(batchId)
+        onlySellable(batchId)
     {
+        require(
+            honeyToken.processedBatches(batchId),
+            "SupplyChain: batch has not been bottled yet"
+        );
         retailReceiptTimestamp[batchId] = block.timestamp;
     }
 

@@ -5,13 +5,14 @@ const { ethers } = await network.create();
 
 describe("SupplyChain", function () {
   async function deploy() {
-    const [admin, beekeeper, bottler, logistics, retailer, outsider] = await ethers.getSigners();
+    const [admin, beekeeper, bottler, logistics, retailer, outsider, lab] = await ethers.getSigners();
 
     const registry = await ethers.deployContract("ActorRegistry", [], admin);
     await registry.connect(admin).grantRole(await registry.BEEKEEPER_ROLE(), beekeeper.address);
     await registry.connect(admin).grantRole(await registry.BOTTLER_ROLE(), bottler.address);
     await registry.connect(admin).grantRole(await registry.LOGISTICS_ROLE(), logistics.address);
     await registry.connect(admin).grantRole(await registry.RETAILER_ROLE(), retailer.address);
+    await registry.connect(admin).grantRole(await registry.LAB_ROLE(), lab.address);
 
     const honeyToken = await ethers.deployContract("HoneyToken", [""], admin);
     const qualityIndex = await ethers.deployContract("QualityIndex", [await registry.getAddress()], admin);
@@ -25,8 +26,10 @@ describe("SupplyChain", function () {
     await honeyToken.connect(admin).setSupplyChain(await supplyChain.getAddress());
     await qualityIndex.connect(admin).setSupplyChain(await supplyChain.getAddress());
 
-    return { registry, honeyToken, qualityIndex, supplyChain, admin, beekeeper, bottler, logistics, retailer, outsider };
+    return { registry, honeyToken, qualityIndex, supplyChain, admin, beekeeper, bottler, logistics, retailer, outsider, lab };
   }
+
+  const emptyPHQI = { normalizedWaterContent: 0, hmf: 0, invertaseActivity: 0, waterContentPercent: 0 };
 
   it("registers a harvest batch, mints the bulk token, and sets the beekeeper as current holder", async function () {
     const { supplyChain, honeyToken, beekeeper } = await deploy();
@@ -159,11 +162,14 @@ describe("SupplyChain", function () {
     await expect(supplyChain.connect(outsider).setMaxSafeTemperature(50)).to.revert(ethers);
   });
 
-  it("records a retail receipt from the current-holding retailer", async function () {
-    const { supplyChain, honeyToken, beekeeper, retailer } = await deploy();
+  it("records a retail receipt from the current-holding retailer once the batch has been bottled", async function () {
+    const { supplyChain, honeyToken, beekeeper, bottler, retailer } = await deploy();
     await supplyChain.connect(beekeeper).registerHarvestBatch(2026, [1], [1000]);
     await honeyToken.connect(beekeeper).setApprovalForAll(await supplyChain.getAddress(), true);
-    await supplyChain.connect(beekeeper).transferCustody(1, retailer.address);
+    await supplyChain.connect(beekeeper).transferCustody(1, bottler.address);
+    await supplyChain.connect(bottler).processAndBottle(1, [500], [2]);
+    await honeyToken.connect(bottler).setApprovalForAll(await supplyChain.getAddress(), true);
+    await supplyChain.connect(bottler).transferCustody(1, retailer.address);
 
     await supplyChain.connect(retailer).recordRetailReceipt(1);
 
@@ -177,5 +183,91 @@ describe("SupplyChain", function () {
     await supplyChain.connect(beekeeper).transferCustody(1, bottler.address);
 
     await expect(supplyChain.connect(bottler).recordRetailReceipt(1)).to.revert(ethers);
+  });
+
+  it("rejects recordRetailReceipt when the batch has not been bottled yet", async function () {
+    const { supplyChain, honeyToken, beekeeper, retailer } = await deploy();
+    await supplyChain.connect(beekeeper).registerHarvestBatch(2026, [1], [1000]);
+    await honeyToken.connect(beekeeper).setApprovalForAll(await supplyChain.getAddress(), true);
+    await supplyChain.connect(beekeeper).transferCustody(1, retailer.address);
+
+    await expect(supplyChain.connect(retailer).recordRetailReceipt(1)).to.revert(ethers);
+  });
+
+  it("still allows recordWarehouseData and recordTransportData while a retest is required", async function () {
+    const { supplyChain, qualityIndex, beekeeper } = await deploy();
+    await supplyChain.connect(beekeeper).registerHarvestBatch(2026, [1], [1000]);
+    await supplyChain.connect(beekeeper).recordTransportData(1, 45, 90);
+
+    let data = await qualityIndex.getQualityData(1);
+    expect(data.state).to.equal(1); // RetestRequired
+
+    await supplyChain.connect(beekeeper).recordWarehouseData(1, 10, 10);
+    await supplyChain.connect(beekeeper).recordTransportData(1, 10, 10);
+
+    data = await qualityIndex.getQualityData(1);
+    expect(data.state).to.equal(1); // unveraendert, kein Revert
+  });
+
+  it("blocks transferCustody while a retest is required", async function () {
+    const { supplyChain, beekeeper, bottler } = await deploy();
+    await supplyChain.connect(beekeeper).registerHarvestBatch(2026, [1], [1000]);
+    await supplyChain.connect(beekeeper).recordTransportData(1, 45, 90);
+
+    await expect(supplyChain.connect(beekeeper).transferCustody(1, bottler.address)).to.revert(ethers);
+  });
+
+  it("blocks transferCustody once the batch is not sellable", async function () {
+    const { supplyChain, qualityIndex, beekeeper, bottler, lab } = await deploy();
+    await supplyChain.connect(beekeeper).registerHarvestBatch(2026, [1], [1000]);
+    await qualityIndex.connect(lab).submitPHQIData(1, { ...emptyPHQI, waterContentPercent: 2400 }, 0, "");
+
+    await expect(supplyChain.connect(beekeeper).transferCustody(1, bottler.address)).to.revert(ethers);
+  });
+
+  it("blocks processAndBottle while a retest is required", async function () {
+    const { supplyChain, honeyToken, beekeeper, bottler } = await deploy();
+    await supplyChain.connect(beekeeper).registerHarvestBatch(2026, [1], [1000]);
+    await honeyToken.connect(beekeeper).setApprovalForAll(await supplyChain.getAddress(), true);
+    await supplyChain.connect(beekeeper).transferCustody(1, bottler.address);
+    await supplyChain.connect(bottler).recordTransportData(1, 45, 90);
+
+    await expect(supplyChain.connect(bottler).processAndBottle(1, [500], [2])).to.revert(ethers);
+  });
+
+  it("blocks processAndBottle once the batch is not sellable", async function () {
+    const { supplyChain, honeyToken, qualityIndex, beekeeper, bottler, lab } = await deploy();
+    await supplyChain.connect(beekeeper).registerHarvestBatch(2026, [1], [1000]);
+    await honeyToken.connect(beekeeper).setApprovalForAll(await supplyChain.getAddress(), true);
+    await supplyChain.connect(beekeeper).transferCustody(1, bottler.address);
+    await qualityIndex.connect(lab).submitPHQIData(1, { ...emptyPHQI, waterContentPercent: 2400 }, 0, "");
+
+    await expect(supplyChain.connect(bottler).processAndBottle(1, [500], [2])).to.revert(ethers);
+  });
+
+  it("blocks recordRetailReceipt while a retest is required", async function () {
+    const { supplyChain, honeyToken, beekeeper, bottler, retailer } = await deploy();
+    await supplyChain.connect(beekeeper).registerHarvestBatch(2026, [1], [1000]);
+    await honeyToken.connect(beekeeper).setApprovalForAll(await supplyChain.getAddress(), true);
+    await supplyChain.connect(beekeeper).transferCustody(1, bottler.address);
+    await supplyChain.connect(bottler).processAndBottle(1, [500], [2]);
+    await honeyToken.connect(bottler).setApprovalForAll(await supplyChain.getAddress(), true);
+    await supplyChain.connect(bottler).transferCustody(1, retailer.address);
+    await supplyChain.connect(retailer).recordTransportData(1, 45, 90);
+
+    await expect(supplyChain.connect(retailer).recordRetailReceipt(1)).to.revert(ethers);
+  });
+
+  it("blocks recordRetailReceipt once the batch is not sellable", async function () {
+    const { supplyChain, honeyToken, qualityIndex, beekeeper, bottler, retailer, lab } = await deploy();
+    await supplyChain.connect(beekeeper).registerHarvestBatch(2026, [1], [1000]);
+    await honeyToken.connect(beekeeper).setApprovalForAll(await supplyChain.getAddress(), true);
+    await supplyChain.connect(beekeeper).transferCustody(1, bottler.address);
+    await supplyChain.connect(bottler).processAndBottle(1, [500], [2]);
+    await honeyToken.connect(bottler).setApprovalForAll(await supplyChain.getAddress(), true);
+    await supplyChain.connect(bottler).transferCustody(1, retailer.address);
+    await qualityIndex.connect(lab).submitPHQIData(1, { ...emptyPHQI, waterContentPercent: 2400 }, 0, "");
+
+    await expect(supplyChain.connect(retailer).recordRetailReceipt(1)).to.revert(ethers);
   });
 });
