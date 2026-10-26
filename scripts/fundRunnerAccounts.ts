@@ -4,13 +4,13 @@ import { formatEther, parseEther } from "ethers";
 const NETWORK = process.env.NETWORK ?? "localhost";
 
 const TARGETS_ETH: Record<number, { role: string; eth: string }> = {
-  1: { role: "lab", eth: "0.10" },
-  2: { role: "award body", eth: "0.05" },
-  3: { role: "certification body", eth: "0.05" },
-  4: { role: "beekeeper (runner)", eth: "0.40" },
-  5: { role: "bottler", eth: "0.20" },
-  6: { role: "retailer", eth: "0.10" },
-  7: { role: "logistics", eth: "0.25" },
+  1: { role: "lab", eth: "0.20" },
+  2: { role: "award body", eth: "0.10" },
+  3: { role: "certification body", eth: "0.20" },
+  4: { role: "beekeeper (runner)", eth: "0.50" },
+  5: { role: "bottler", eth: "0.25" },
+  6: { role: "retailer", eth: "0.15" },
+  7: { role: "logistics", eth: "0.30" },
   8: { role: "beekeeper (live case study)", eth: "0.40" },
 };
 
